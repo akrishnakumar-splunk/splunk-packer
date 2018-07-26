@@ -7,7 +7,7 @@ Vagrant.configure("2") do |config|
   config.ssh.forward_agent = true
 
   config.vm.define "splunkbox" do |splunkbox|
-    splunkbox.vm.box = "splunkbox"
+    splunkbox.vm.box = "beingadityak/splunkbox"
     splunkbox.vm.network :private_network, ip: "172.16.20.5"
     ssh_pub_key = File.readlines("#{Dir.home}/.ssh/id_rsa.pub").first.strip
     config.vm.provision 'shell', inline: 'mkdir -p /root/.ssh'
