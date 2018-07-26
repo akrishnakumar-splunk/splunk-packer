@@ -1,14 +1,82 @@
 ---
 - hosts: all
-  become: yes
-  gather_facts: yes
-
-  roles:
-    - geerlingguy.nfs
-    - packerconfig
+  become: true
+  gather_facts: true
+  remote_user: ubuntu
 
   tasks:
-    - import_tasks: splunk_cfg.yml
+    - name: Get VirtualBox version.
+      shell: cat /home/ubuntu/.vbox_version
+      register: virtualbox_version
+
+    - name: Mount VirtualBox guest additions ISO.
+      mount:
+        name: /tmp/vbox
+        src: "/home/ubuntu/VBoxGuestAdditions_{{ virtualbox_version.stdout }}.iso"
+        opts: loop
+        state: mounted
+        fstype: iso9660
+
+    - name: Run VirtualBox guest additions installation.
+      shell: sh /tmp/vbox/VBoxLinuxAdditions.run
+      failed_when: false
+
+    - name: Unmount VirtualBox guest additions ISO.
+      mount:
+        name: /tmp/vbox
+        src: "/home/ubuntu/VBoxGuestAdditions_{{ virtualbox_version.stdout }}.iso"
+        state: absent
+        fstype: iso9660
+
+    - name: Delete VirtualBox guest additions ISO.
+      file:
+        path: "/home/ubuntu/VBoxGuestAdditions_{{ virtualbox_version.stdout }}.iso"
+        state: absent
+
+    - name: Install base packages
+      apt: name={{ item }} state=present
+      with_items:
+        - python-pip
+      become: true
+
+    - name: Download Splunk Deb package (7.0.3 Minty)
+      get_url:
+        url: "https://www.splunk.com/page/download_track?file=7.0.3/linux/splunk-7.0.3-fa31da744b51-linux-2.6-amd64.deb&ac=&wget=true&name=wget&platform=Linux&architecture=x86_64&version=7.0.3&product=splunk&typed=release"
+        dest: "/home/ubuntu/splunk-7.0.3-fa31da744b51-linux-2.6-amd64.deb"
+
+    - name: Install Splunk Package Downloaded previously
+      apt:
+        deb: "/home/ubuntu/splunk-7.0.3-fa31da744b51-linux-2.6-amd64.deb"
+      become: true
+
+    - name: Start Splunk as Splunk user
+      shell: "/opt/splunk/bin/splunk start --answer-yes --no-prompt --accept-license"
+      become: true
+
+    - name: Enable boot-start for Splunk binary
+      shell: "/opt/splunk/bin/splunk enable boot-start"
+      become: true
+        
+    - name: Stop Splunk
+      shell: "/opt/splunk/bin/splunk stop"
+      become: true
+
+    - name: Remove passwd file
+      shell: rm -rf /opt/splunk/etc/passwd
+      become: true
+      notify: Restart Splunk
+
+    - name: Disable first time sign-in message
+      shell: touch /opt/splunk/etc/.ui_login
+      become: true
+      notify: Restart Splunk
+
+    - name: Change password
+      shell: echo "[user_info]\nUSERNAME = admin\nPASSWORD = changeme" > /opt/splunk/etc/system/default/user-seed.conf
+      become: true
+      notify: Restart Splunk
 
   handlers:
-    - import_tasks: handlers.yml
+    - name: Restart Splunk
+      shell: /opt/splunk/bin/splunk restart
+      become: true

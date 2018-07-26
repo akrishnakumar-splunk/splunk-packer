@@ -1,5 +1,5 @@
 {
-    "_comment": "Template for creating a Splunk AMI on Vagrant Box",
+    "_comment": "Template for creating a Splunk Image as a vSphere template",
     "provisioners": [
         {
             "type": "shell",
@@ -13,8 +13,7 @@
           },
           {
             "type": "ansible-local",
-            "playbook_file": "ansible/playbooks/main.yml",
-            "galaxy_file": "requirements.yml"
+            "playbook_file": "ansible/playbooks/main.yml"
           },
          {
             "type": "shell",
