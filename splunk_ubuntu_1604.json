@@ -13,7 +13,7 @@
           },
           {
             "type": "ansible-local",
-            "playbook_file": "ansible/main.yml",
+            "playbook_file": "ansible/playbooks/main.yml",
             "galaxy_file": "requirements.yml"
           },
          {

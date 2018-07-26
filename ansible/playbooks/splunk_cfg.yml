@@ -63,12 +63,12 @@
   become: true
 
 - name: Configure Reverse Proxy
-  template: src=./templates/nginx.conf.j2 dest=/etc/nginx/sites-available/default mode=0644
+  template: src=../templates/nginx.conf.j2 dest=/etc/nginx/sites-available/default mode=0644
   notify: Restart NGINX
   become: true
 
 - name: Copy custom error pages
-  copy: src=./files/{{ item }} dest=/var/www/html
+  copy: src=../files/{{ item }} dest=/var/www/html
   with_items:
     - 500.html
   notify: Restart NGINX

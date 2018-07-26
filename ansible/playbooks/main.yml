@@ -5,7 +5,7 @@
 
   roles:
     - geerlingguy.nfs
-    - packer-config
+    - packerconfig
 
   tasks:
     - import_tasks: splunk_cfg.yml
