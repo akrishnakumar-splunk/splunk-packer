@@ -1,0 +1,84 @@
+---
+- name: Install base packages
+  apt: name={{ item }} state=present
+  with_items:
+    - nginx
+    - python-pip
+  become: true
+
+- name: Download Splunk Deb package (7.0.3 Minty)
+  get_url:
+    url: "https://www.splunk.com/page/download_track?file=7.0.3/linux/splunk-7.0.3-fa31da744b51-linux-2.6-amd64.deb&ac=&wget=true&name=wget&platform=Linux&architecture=x86_64&version=7.0.3&product=splunk&typed=release"
+    dest: "/home/{{ ansible_env.USER }}/splunk-7.0.3-fa31da744b51-linux-2.6-amd64.deb"
+
+- name: Install Splunk Package Downloaded previously
+  apt:
+    deb: "/home/{{ ansible_env.USER }}/splunk-7.0.3-fa31da744b51-linux-2.6-amd64.deb"
+    become: true
+
+- name: Start Splunk as Splunk user
+  shell: "/opt/splunk/bin/splunk start --answer-yes --no-prompt --accept-license"
+  become: true
+  become_user: splunk
+
+- name: Enable boot-start for Splunk binary
+  shell: "/opt/splunk/bin/splunk enable boot-start"
+  become: true
+  become_user: splunk
+    
+- name: Stop Splunk
+  shell: "/opt/splunk/bin/splunk stop"
+  become: true
+  become_user: splunk
+
+- name: Remove passwd file
+  shell: rm -rf /opt/splunk/etc/passwd
+  become: true
+  become_user: splunk
+  warn: false
+  notify: Restart Splunk
+
+- name: Disable first time sign-in message
+  shell: touch /opt/splunk/etc/.ui_login
+  become: true
+  become_user: splunk
+  notify: Restart Splunk
+
+- name: Change password
+  shell: echo "[user_info]\nUSERNAME = admin\nPASSWORD = changeme" > /opt/splunk/etc/system/default/user-seed.conf
+  become: true
+  become_user: splunk
+  notify: Restart Splunk
+
+- name: Ensure NGINX is started
+  service: name=nginx state=started enabled=yes
+  become: true
+
+- name: Deactivate default NGINX site
+  file: path=/etc/nginx/{{item}} state=absent
+  with_items:
+    - sites-available/default
+    - sites-enabled/default
+  notify: Restart NGINX
+  become: true
+
+- name: Configure Reverse Proxy
+  template: src=./templates/nginx.conf.j2 dest=/etc/nginx/sites-available/default mode=0644
+  notify: Restart NGINX
+  become: true
+
+- name: Copy custom error pages
+  copy: src=./files/{{ item }} dest=/var/www/html
+  with_items:
+    - 500.html
+  notify: Restart NGINX
+  become: true
+
+- name: Activate Reverse Proxy
+  file: src=/etc/nginx/sites-available/default dest=/etc/nginx/sites-enabled/default state=link
+  notify: Restart NGINX
+  become: true
+
+- name: Disable Splunk default port access via Web UI
+  shell: "iptables -I INPUT 1 -p tcp --dport 8000 ! -s 127.0.0.1 -j REJECT"
+  become: true

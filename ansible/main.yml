@@ -1,0 +1,14 @@
+---
+- hosts: all
+  become: yes
+  gather_facts: yes
+
+  roles:
+    - geerlingguy.nfs
+    - packer-config
+
+  tasks:
+    - import_tasks: splunk_cfg.yml
+
+  handlers:
+    - import_tasks: handlers.yml
