@@ -1,0 +1,81 @@
+{
+    "_comment": "Template for creating a Splunk AMI on Vagrant Box",
+    "provisioners": [
+        {
+          "type": "shell",
+          "execute_command": "echo 'ubuntu' | {{ .Vars }} sudo -E -S sh '{{ .Path }}'",
+          "inline": [
+              "sleep 30",
+              "wget –-quiet -O splunk-7.0.3-fa31da744b51-linux-2.6-amd64.deb 'https://www.splunk.com/page/download_track?file=7.0.3/linux/splunk-7.0.3-fa31da744b51-linux-2.6-amd64.deb&ac=&wget=true&name=wget&platform=Linux&architecture=x86_64&version=7.0.3&product=splunk&typed=release'",
+              "dpkg -i splunk-7.0.3-fa31da744b51-linux-2.6-amd64.deb",
+              "/opt/splunk/bin/splunk start --answer-yes --no-prompt --accept-license",
+              "/opt/splunk/bin/splunk enable boot-start",
+              "/opt/splunk/bin/splunk stop",
+              "chown -R splunk:splunk /opt/splunk"
+          ]
+        }
+      ],
+    "builders":[
+        {
+            "name": "virtualbox-ubuntu-splunk-builder",
+            "type": "virtualbox-iso",
+            "boot_command": [
+                "<enter><wait><f6><esc><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs>",
+                "<bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs>",
+                "<bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs>",
+                "<bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs>",
+                "/install/vmlinuz noapic ",
+                "preseed/file=/floppy/ubuntu.cfg ",
+                "debian-installer=en_US auto locale=en_US kbd-chooser/method=us ",
+                "hostname=ubuntu ",
+                "fb=false debconf/frontend=noninteractive ",
+                "keyboard-configuration/modelcode=SKIP keyboard-configuration/layout=USA ",
+                "keyboard-configuration/variant=USA console-setup/ask_detect=false ",
+                "grub-installer/bootdev=/dev/sda ",
+                "initrd=/install/initrd.gz -- <enter>"
+              ],
+            "boot_wait": "10s",
+            "floppy_files": [
+                "preseed/ubuntu.cfg"
+            ],
+            "disk_size": 81920,
+            "guest_os_type": "Ubuntu_64",
+            "headless": true,
+            "http_directory": "http",
+            "iso_urls": [
+                "iso/ubuntu-16.04.4-server-amd64.iso",
+                "http://releases.ubuntu.com/16.04/ubuntu-16.04.4-server-amd64.iso"
+            ],
+            "iso_checksum_type": "sha256",
+            "iso_checksum": "0a03608988cfd2e50567990dc8be96fb3c501e198e2e6efcb846d89efc7b89f2",
+            "ssh_username": "ubuntu",
+            "ssh_password": "ubuntu",
+            "ssh_port": 22,
+            "ssh_wait_timeout": "10000s",
+            "shutdown_command": "echo 'ubuntu'|sudo -S shutdown -P now",
+            "vm_name": "packer-ubuntu-16.04-amd64",
+            "guest_additions_path": "VBoxGuestAdditions_{{.Version}}.iso",
+            "virtualbox_version_file": ".vbox_version",
+            "vboxmanage": [
+                [
+                  "modifyvm",
+                  "{{.Name}}",
+                  "--memory",
+                  "1024"
+                ],
+                [
+                  "modifyvm",
+                  "{{.Name}}",
+                  "--cpus",
+                  "1"
+                ]
+              ]
+        }
+    ],
+    "post-processors": [
+      {
+        "output": "builds/{{.Provider}}-ubuntu1604.box",
+        "type": "vagrant"
+      }
+    ]
+}
