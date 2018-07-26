@@ -1,19 +1,21 @@
 {
     "_comment": "Template for creating a Splunk AMI on Vagrant Box",
     "provisioners": [
-        {
+          {
+            "type": "shell",
+            "execute_command": "echo 'ubuntu' | {{.Vars}} sudo -S -E bash '{{.Path}}'",
+            "script": "scripts/setup.sh"
+          },
+          {
           "type": "shell",
           "execute_command": "echo 'ubuntu' | {{ .Vars }} sudo -E -S sh '{{ .Path }}'",
-          "inline": [
-              "sleep 30",
-              "wget –-quiet -O splunk-7.0.3-fa31da744b51-linux-2.6-amd64.deb 'https://www.splunk.com/page/download_track?file=7.0.3/linux/splunk-7.0.3-fa31da744b51-linux-2.6-amd64.deb&ac=&wget=true&name=wget&platform=Linux&architecture=x86_64&version=7.0.3&product=splunk&typed=release'",
-              "dpkg -i splunk-7.0.3-fa31da744b51-linux-2.6-amd64.deb",
-              "/opt/splunk/bin/splunk start --answer-yes --no-prompt --accept-license",
-              "/opt/splunk/bin/splunk enable boot-start",
-              "/opt/splunk/bin/splunk stop",
-              "chown -R splunk:splunk /opt/splunk"
-          ]
-        }
+          "script": "scripts/splunk.sh"
+         },
+         {
+            "type": "shell",
+            "execute_command": "echo 'ubuntu' | {{.Vars}} sudo -S -E bash '{{.Path}}'",
+            "script": "scripts/cleanup.sh"
+         }
       ],
     "builders":[
         {
@@ -24,20 +26,28 @@
                 "<bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs>",
                 "<bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs>",
                 "<bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs>",
-                "/install/vmlinuz noapic ",
-                "preseed/file=/floppy/ubuntu.cfg ",
-                "debian-installer=en_US auto locale=en_US kbd-chooser/method=us ",
-                "hostname=ubuntu ",
-                "fb=false debconf/frontend=noninteractive ",
-                "keyboard-configuration/modelcode=SKIP keyboard-configuration/layout=USA ",
-                "keyboard-configuration/variant=USA console-setup/ask_detect=false ",
-                "grub-installer/bootdev=/dev/sda ",
-                "initrd=/install/initrd.gz -- <enter>"
+                "/install/vmlinuz<wait>",
+                " auto<wait>",
+                " console-setup/ask_detect=false<wait>",
+                " console-setup/layoutcode=us<wait>",
+                " console-setup/modelcode=pc105<wait>",
+                " debconf/frontend=noninteractive<wait>",
+                " debian-installer=en_US<wait>",
+                " fb=false<wait>",
+                " initrd=/install/initrd.gz<wait>",
+                " kbd-chooser/method=us<wait>",
+                " keyboard-configuration/layout=USA<wait>",
+                " keyboard-configuration/variant=USA<wait>",
+                " locale=en_US<wait>",
+                " netcfg/get_domain=vm<wait>",
+                " netcfg/get_hostname=ubuntu<wait>",
+                " grub-installer/bootdev=/dev/sda<wait>",
+                " noapic<wait>",
+                " preseed/url=http://{{ .HTTPIP }}:{{ .HTTPPort }}/preseed.cfg",
+                " -- <wait>",
+                "<enter><wait>"
               ],
             "boot_wait": "10s",
-            "floppy_files": [
-                "preseed/ubuntu.cfg"
-            ],
             "disk_size": 81920,
             "guest_os_type": "Ubuntu_64",
             "headless": true,
@@ -74,7 +84,7 @@
     ],
     "post-processors": [
       {
-        "output": "builds/{{.Provider}}-ubuntu1604.box",
+        "output": "builds/{{.Provider}}-splunk-ubuntu1604.box",
         "type": "vagrant"
       }
     ]

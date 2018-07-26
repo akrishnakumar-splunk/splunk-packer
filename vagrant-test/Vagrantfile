@@ -1,0 +1,24 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+# Vagrantfile for Testing VM created by packer.
+
+Vagrant.configure("2") do |config|
+  config.ssh.forward_agent = true
+
+  config.vm.define "splunkbox" do |splunkbox|
+    splunkbox.vm.box = "splunkbox"
+    splunkbox.vm.network :private_network, ip: "172.16.20.5"
+    ssh_pub_key = File.readlines("#{Dir.home}/.ssh/id_rsa.pub").first.strip
+    config.vm.provision 'shell', inline: 'mkdir -p /root/.ssh'
+    config.vm.provision 'shell', inline: "echo #{ssh_pub_key} >> /root/.ssh/authorized_keys"
+    config.vm.provision 'shell', inline: "echo \"#{ssh_pub_key}\" >> /home/vagrant/.ssh/authorized_keys", privileged: false
+    config.ssh.username = "ubuntu"
+    config.ssh.password = "ubuntu"
+    splunkbox.vm.provider "virtualbox" do |vb|
+      vb.gui = false
+      vb.customize ['modifyvm', :id, '--memory', '1024']
+      vb.customize ['modifyvm', :id, '--name',   "splunkbox" ]
+    end
+  end
+end
