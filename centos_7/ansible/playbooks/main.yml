@@ -1,0 +1,164 @@
+---
+- hosts: all
+  become: true
+  gather_facts: true
+  remote_user: centos
+
+  tasks:
+    - name: Get the current kernel release.
+      command: uname -r
+      changed_when: false
+      register: kernel_release
+
+    - name: Ensure necessary packages are installed.
+      yum: "name={{ item }} state=present"
+      with_items:
+        - wget
+        - perl
+        - cpp
+        - gcc
+        - make
+        - bzip2
+        - kernel-headers
+        - kernel-devel
+        - "kernel-devel-{{ kernel_release.stdout }}"
+        - libselinux-python
+        - cifs-utils
+
+# Fix slow DNS.
+    - name: Fix slow DNS (adapted from Bento).
+      lineinfile:
+        dest: /etc/sysconfig/network
+        regexp: '^RES_OPTIONS'
+        line: 'RES_OPTIONS="single-request-reopen"'
+        state: present
+
+    - name: Restart network service (explicitly).
+      service: name=network state=restarted
+
+# SSH daemon configuration.
+    - name: Configure SSH daemon.
+      lineinfile:
+        dest: /etc/ssh/sshd_config
+        regexp: "{{ item.regexp }}"
+        line: "{{ item.line }}"
+        state: present
+      with_items:
+        - { regexp: '^UseDNS', line: 'UseDNS no' }
+        - { regexp: '^GSSAPIAuthentication', line: 'GSSAPIAuthentication no' }
+
+# centos SSH configuration.
+    - name: Configure centos .ssh directory.
+      file:
+        path: /home/centos/.ssh
+        state: directory
+        owner: centos
+        group: centos
+        mode: 0700
+
+    - name: Get Vagrant's public key.
+      get_url:
+        url: https://github.com/mitchellh/vagrant/raw/master/keys/vagrant.pub
+        dest: /home/centos/.ssh/authorized_keys
+        owner: centos
+        group: centos
+        mode: 0600
+
+    - name: Get VirtualBox version.
+      shell: cat /home/centos/.vbox_version
+      register: virtualbox_version
+
+    - name: Mount VirtualBox guest additions ISO.
+      mount:
+        name: /tmp/vbox
+        src: "/home/centos/VBoxGuestAdditions_{{ virtualbox_version.stdout }}.iso"
+        opts: loop
+        state: mounted
+        fstype: iso9660
+
+    - name: Run VirtualBox guest additions installation.
+      shell: sh /tmp/vbox/VBoxLinuxAdditions.run
+      failed_when: false
+
+    - name: Unmount VirtualBox guest additions ISO.
+      mount:
+        name: /tmp/vbox
+        src: "/home/centos/VBoxGuestAdditions_{{ virtualbox_version.stdout }}.iso"
+        state: absent
+        fstype: iso9660
+
+    - name: Delete VirtualBox guest additions ISO.
+      file:
+        path: "/home/centos/VBoxGuestAdditions_{{ virtualbox_version.stdout }}.iso"
+        state: absent
+
+# Cleanup tasks.
+    - name: Remove unneeded packages.
+      yum: "name={{ item }} state=absent"
+      with_items:
+        - cpp
+        - kernel-devel
+        - kernel-headers
+
+    - name: Clean up yum.
+      command: yum clean all
+
+    - name: Remove any remnants of VirtualBox ISOs.
+      shell: rm -rf VBoxGuestAdditions_*.iso VBoxGuestAdditions_*.iso.?
+
+    - name: Remove RedHat interface persistence (step 1).
+      shell: rm -f /etc/udev/rules.d/70-persistent-net.rules
+
+    - name: Remove RedHat interface persistence (step 2).
+      lineinfile:
+        dest: /etc/sysconfig/network-scripts/ifcfg-eth0
+        regexp: "{{ item }}"
+        state: absent
+      with_items:
+        - '^HWADDR'
+        - '^UUID'
+
+# Splunk Tasks
+
+    - name: Download Splunk RPM package (7.0.3 Minty)
+      get_url:
+        url: "https://www.splunk.com/page/download_track?file=7.0.3/linux/splunk-7.0.3-fa31da744b51-linux-2.6-x86_64.rpm&ac=&wget=true&name=wget&platform=Linux&architecture=x86_64&version=7.0.3&product=splunk&typed=release"
+        dest: "/home/centos/splunk-7.0.3-fa31da744b51-linux-2.6-x86_64.rpm"
+
+    - name: Install Splunk Package Downloaded previously
+      yum:
+        name: "/home/centos/splunk-7.0.3-fa31da744b51-linux-2.6-x86_64.rpm"
+        state: present
+      become: true
+
+    - name: Start Splunk as Splunk user
+      shell: "/opt/splunk/bin/splunk start --answer-yes --no-prompt --accept-license"
+      become: true
+
+    - name: Enable boot-start for Splunk binary
+      shell: "/opt/splunk/bin/splunk enable boot-start"
+      become: true
+        
+    - name: Stop Splunk
+      shell: "/opt/splunk/bin/splunk stop"
+      become: true
+
+    - name: Remove passwd file
+      shell: rm -rf /opt/splunk/etc/passwd
+      become: true
+      notify: Restart Splunk
+
+    - name: Disable first time sign-in message
+      shell: touch /opt/splunk/etc/.ui_login
+      become: true
+      notify: Restart Splunk
+
+    - name: Change password
+      shell: echo "[user_info]\nUSERNAME = admin\nPASSWORD = changeme" > /opt/splunk/etc/system/default/user-seed.conf
+      become: true
+      notify: Restart Splunk
+
+  handlers:
+    - name: Restart Splunk
+      shell: /opt/splunk/bin/splunk restart
+      become: true

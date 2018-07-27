@@ -3,6 +3,6 @@ packer_cache/
 
 # For built boxes
 *.box
-iso/*
+iso/*.iso
 .vagrant/*
 vagrant-test/.vagrant/*
