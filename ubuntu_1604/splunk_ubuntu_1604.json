@@ -1,4 +1,11 @@
 {
+    "variables" : {
+        "vsphere_host": "{{env `VSPHERE_HOST`}}",
+        "vsphere_username": "{{env `VSPHERE_USERNAME`}}",
+        "vsphere_password": "{{env `VSPHERE_PASSWORD`}}",
+        "vsphere_datacenter": "Crest60",
+        "vsphere_datastore": "DS249-Data"
+    },
     "_comment": "Template for creating a Splunk Image as a vSphere template",
     "provisioners": [
         {
@@ -23,8 +30,20 @@
       ],
     "builders":[
         {
-            "name": "virtualbox-ubuntu-splunk-builder",
-            "type": "virtualbox-iso",
+            "name": "vsphere-ubuntu-splunk-builder",
+            "type": "vsphere-iso",
+            "datacenter": "{{ user `vsphere_datacenter` }}",
+            "resource_pool": "FizzBuzzRP",
+            "vcenter_server": "{{ user `vsphere_host` }}",
+            "username": "{{ user `vsphere_username` }}",
+            "password": "{{ user `vsphere_password` }}",
+            "datastore": "{{ user `vsphere_datastore` }}",
+            "cluster": "CrestCluser",
+            "host": "10.0.1.248",
+            "insecure_connection": "true",
+            "floppy_files": [
+              "media/preseed.cfg"
+            ],
             "boot_command": [
                 "<enter><wait><f6><esc><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs>",
                 "<bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs>",
@@ -44,52 +63,29 @@
                 " keyboard-configuration/variant=USA<wait>",
                 " locale=en_US<wait>",
                 " netcfg/get_domain=vm<wait>",
-                " netcfg/get_hostname=cds-vm<wait>",
+                " netcfg/get_hostname=crest-vm<wait>",
                 " grub-installer/bootdev=/dev/sda<wait>",
                 " noapic<wait>",
-                " preseed/url=http://{{ .HTTPIP }}:{{ .HTTPPort }}/preseed.cfg",
+                " file=/media/preseed.cfg",
                 " -- <wait>",
                 "<enter><wait>"
               ],
-            "boot_wait": "10s",
-            "disk_size": 81920,
-            "guest_os_type": "Ubuntu_64",
-            "headless": true,
-            "http_directory": "http",
-            "iso_urls": [
-                "iso/ubuntu-16.04.4-server-amd64.iso",
-                "http://releases.ubuntu.com/16.04/ubuntu-16.04.4-server-amd64.iso"
+            "CPUs": 1,
+            "RAM": 1024,
+            "RAM_reserve_all": true,
+
+            "disk_controller_type":  "pvscsi",
+            "disk_size": 32768,
+            "disk_thin_provisioned": true,
+            "network_card": "vmxnet3",
+            "guest_os_type": "ubuntu64Guest",
+            "iso_paths": [
+                "[DS249-Data]  ISO/ubuntu-16.04.4-server-amd64.iso"
             ],
-            "iso_checksum_type": "sha256",
-            "iso_checksum": "0a03608988cfd2e50567990dc8be96fb3c501e198e2e6efcb846d89efc7b89f2",
             "ssh_username": "ubuntu",
             "ssh_password": "ubuntu",
-            "ssh_port": 22,
-            "ssh_wait_timeout": "10000s",
             "shutdown_command": "echo 'ubuntu'|sudo -S shutdown -P now",
-            "vm_name": "packer-ubuntu-16.04-amd64",
-            "guest_additions_path": "VBoxGuestAdditions_{{.Version}}.iso",
-            "virtualbox_version_file": ".vbox_version",
-            "vboxmanage": [
-                [
-                  "modifyvm",
-                  "{{.Name}}",
-                  "--memory",
-                  "1024"
-                ],
-                [
-                  "modifyvm",
-                  "{{.Name}}",
-                  "--cpus",
-                  "1"
-                ]
-              ]
+            "vm_name": "packer-ubuntu-16.04-amd64"
         }
-    ],
-    "post-processors": [
-      {
-        "output": "builds/{{.Provider}}-splunk-ubuntu1604.box",
-        "type": "vagrant"
-      }
     ]
 }
